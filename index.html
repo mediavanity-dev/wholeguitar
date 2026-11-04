@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fretboard</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FGFP95J3W9"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+  gtag("config", "G-FGFP95J3W9");
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Learn the guitar neck by playing it. The app asks, you play, the microphone checks. Notes, intervals, triads, scales, chords, harmony, ear and rhythm.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+:root{
+  --bg:#fff; --fg:#000; --dim:#8a8a8a; --line:#d4d4d4; --accent:#d2361e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#000; --fg:#f2f2f2; --dim:#777; --line:#333; --accent:#ff5b3f; color-scheme: dark; }
+}
+:root[data-theme="dark"]{ --bg:#000; --fg:#f2f2f2; --dim:#777; --line:#333; --accent:#ff5b3f; color-scheme: dark; }
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--fg);
+  font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;
+  display:flex; flex-direction:column; min-height:100dvh;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+nav{display:flex;gap:24px;padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+nav button{color:var(--dim);padding:4px 0}
+nav button[aria-current="true"]{color:var(--fg)}
+main{flex:1;min-width:0;display:none;flex-direction:column;padding:16px;max-width:520px;width:100%;margin:0 auto}
+main.on{display:flex}
+.dim{color:var(--dim)}
+.acc{color:var(--accent)}
+.small{font-size:14px}
+
+/* practice */
+.center{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:12px}
+.big{font-size:22px;border:1px solid var(--fg);padding:14px 44px}
+.stage{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.prompt{font-size:30px;line-height:1.15;margin-top:6px;min-height:36px}
+.sub{color:var(--dim);margin-top:4px;min-height:22px}
+.status{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;min-height:24px}
+.status .hear{color:var(--dim);font-variant-numeric:tabular-nums}
+.status .actions{display:flex;gap:20px}
+.status .actions button{color:var(--dim);font-size:15px;padding:4px 0}
+.msg{margin-top:8px;min-height:22px}
+.boardwrap{flex:1;display:flex;justify-content:center;align-items:flex-start;margin-top:8px;min-height:0}
+svg.board{height:calc(100dvh - 270px);max-height:560px;min-height:280px;width:auto;max-width:100%}
+.overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;justify-content:center;padding:32px 24px;gap:20px;z-index:5;max-width:520px;margin:0 auto}
+.overlay h2{font-weight:400;font-size:26px}
+.overlay p{font-size:18px}
+.overlay button{align-self:flex-start;border:1px solid var(--fg);padding:10px 28px}
+
+/* rhythm */
+.beats{display:flex;gap:18px;justify-content:center;margin:40px 0}
+.beats i{width:18px;height:18px;border:1px solid var(--fg);border-radius:50%}
+.beats i.on{background:var(--fg)}
+.beats i.on.one{background:var(--accent);border-color:var(--accent)}
+
+/* tuner */
+.tname{font-size:96px;line-height:1;font-weight:300;font-variant-numeric:tabular-nums}
+.tcents{color:var(--dim);font-variant-numeric:tabular-nums;min-height:22px}
+.track{position:relative;width:100%;max-width:320px;height:40px;margin-top:24px}
+.track::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--line)}
+.track::after{content:"";position:absolute;left:50%;top:6px;bottom:6px;border-left:1px solid var(--fg)}
+.needle{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--fg);left:50%;transition:left .08s linear;opacity:0}
+.needle.ok{background:var(--accent)}
+
+/* path */
+ol.path{list-style:none;display:flex;flex-direction:column;gap:22px;padding-bottom:24px}
+ol.path li.locked{color:var(--dim)}
+ol.path .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+ol.path .name{font-size:19px}
+ol.path .count{font-size:14px;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+ol.path p{font-size:15px;color:var(--dim);margin-top:4px}
+.bar{height:2px;background:var(--line);margin-top:8px;position:relative}
+.bar b,.bar u{position:absolute;left:0;top:0;bottom:0}
+.bar b{background:var(--dim)} .bar u{background:var(--fg)}
+.foot{display:flex;gap:24px;border-top:1px solid var(--line);padding-top:16px;margin-top:auto}
+.foot button{color:var(--dim);font-size:14px}
+</style>
+</head>
+<body>
+<nav>
+  <button data-v="practice" aria-current="true">Practice</button>
+  <button data-v="tuner">Tuner</button>
+  <button data-v="path">Path</button>
+</nav>
+
+<main id="practice" class="on"></main>
+
+<main id="tuner">
+  <div class="center">
+    <div class="tname" id="tname">–</div>
+    <div class="tcents" id="tcents"></div>
+    <div class="track"><div class="needle" id="needle"></div></div>
+    <p class="dim small" id="tnote" style="margin-top:24px">E A D G B E</p>
+  </div>
+</main>
+
+<main id="path"></main>
+
+<script>
+"use strict";
+/* ============================================================
+   Music
+   ============================================================ */
+const OPEN = {6:40, 5:45, 4:50, 3:55, 2:59, 1:64};   // standard tuning, MIDI
+const STRINGS = [6,5,4,3,2,1];
+const MAXF = 15;
+const LETTERS = 'CDEFGAB';
+const LETTER_PC = [0,2,4,5,7,9,11];
+const PC_NAME = ['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const PC_SHARP = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+const PC_FLAT = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
+const PC_BOTH = ['C','C♯ / D♭','D','D♯ / E♭','E','F','F♯ / G♭','G','G♯ / A♭','A','A♯ / B♭','B'];
+const ROOT_NAMES = ['C','C♯','D♭','D','E♭','E','F','F♯','G♭','G','A♭','A','B♭','B'];
+const KEYS = ['C','G','D','A','E','B','F','B♭','E♭','A♭','D♭'];
+
+// degree symbol -> [semitones, scale-step number]
+const DEG = {
+  '1':[0,1], '♭2':[1,2], '2':[2,2], '♭3':[3,3], '3':[4,3], '4':[5,4], '♯4':[6,4], '♭5':[6,5],
+  '5':[7,5], '♯5':[8,5], '♭6':[8,6], '6':[9,6], '♭♭7':[9,7], '♭7':[10,7], '7':[11,7], '8':[12,8]
+};
+
+function parseName(n){
+  const l = LETTERS.indexOf(n[0]);
+  let acc = 0;
+  for (const ch of n.slice(1)) acc += ch === '♯' ? 1 : ch === '♭' ? -1 : 0;
+  return {l, acc, pc: (LETTER_PC[l] + acc + 12) % 12};
+}
+const pcOf = n => parseName(n).pc;
+function spell(root, sym){
+  const r = parseName(root), [semi, step] = DEG[sym];
+  const l = (r.l + step - 1) % 7;
+  const target = (r.pc + semi) % 12;
+  const acc = ((target - LETTER_PC[l] + 18) % 12) - 6;
+  return LETTERS[l] + (acc > 0 ? '♯'.repeat(acc) : '♭'.repeat(-acc));
+}
+// Spellings a learner shouldn't meet: double accidentals, and E♯ B♯ F♭ C♭.
+const badSpelling = names => names.some(n => /♯♯|♭♭|E♯|B♯|F♭|C♭/.test(n));
+const fretOf = (s, m) => m - OPEN[s];
+const playable = (s, m, lo=0, hi=MAXF) => { const f = m - OPEN[s]; return f >= lo && f <= hi; };
+function positions(m, lo=0, hi=MAXF){
+  return STRINGS.filter(s => playable(s, m, lo, hi)).map(s => ({s, f: m - OPEN[s]}));
+}
+function positionsPc(pc, lo=0, hi=12){
+  const out = [];
+  for (const s of STRINGS) for (let f = lo; f <= hi; f++) if ((OPEN[s] + f) % 12 === pc) out.push({s, f});
+  return out;
+}
+const rand = n => Math.floor(Math.random() * n);
+const pick = a => a[rand(a.length)];
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+const CHORDS = {
+  '':['1','3','5'], 'm':['1','♭3','5'], '°':['1','♭3','♭5'], '+':['1','3','♯5'],
+  'maj7':['1','3','5','7'], '7':['1','3','5','♭7'], 'm7':['1','♭3','5','♭7'], 'm7♭5':['1','♭3','♭5','♭7'],
+  '°7':['1','♭3','♭5','♭♭7'], 'm(maj7)':['1','♭3','5','7'], '6':['1','3','5','6'], 'm6':['1','♭3','5','6'],
+  'sus2':['1','2','5'], 'sus4':['1','4','5']
+};
+const CHORD_WORD = {
+  '':'major', 'm':'minor', '°':'diminished', '+':'augmented', 'maj7':'major seventh', '7':'dominant seventh',
+  'm7':'minor seventh', 'm7♭5':'half-diminished', '°7':'diminished seventh', 'm(maj7)':'minor major seventh',
+  '6':'major sixth', 'm6':'minor sixth', 'sus2':'suspended second', 'sus4':'suspended fourth'
+};
+const SCALES = {
+  'major':['1','2','3','4','5','6','7'],
+  'Dorian':['1','2','♭3','4','5','6','♭7'],
+  'Phrygian':['1','♭2','♭3','4','5','♭6','♭7'],
+  'Lydian':['1','2','3','♯4','5','6','7'],
+  'Mixolydian':['1','2','3','4','5','6','♭7'],
+  'natural minor':['1','2','♭3','4','5','♭6','♭7'],
+  'Locrian':['1','♭2','♭3','4','♭5','♭6','♭7'],
+  'minor pentatonic':['1','♭3','4','5','♭7'],
+  'major pentatonic':['1','2','3','5','6'],
+};
+const MAJOR = SCALES.major;
+const DIA3 = ['','m','m','','','m','°'];
+const DIA7 = ['maj7','m7','m7','maj7','7','m7','m7♭5'];
+const ROMAN3 = ['I','ii','iii','IV','V','vi','vii°'];
+const ROMAN7 = ['Imaj7','ii7','iii7','IVmaj7','V7','vi7','viiø7'];
+
+function chordNotes(root, type){ return CHORDS[type].map(d => spell(root, d)); }
+function goodRoot(type){
+  for (let i = 0; i < 50; i++){ const r = pick(ROOT_NAMES); if (!badSpelling(chordNotes(r, type))) return r; }
+  return 'C';
+}
+const strLabel = s => `string ${s}`;
+
+/* ============================================================
+   Curriculum. Each card is a fact; make() builds one random instance.
+   expect: {type:'seq', m:[midi...]} | {type:'pcs', pcs:[pc...]} | {type:'test', ok:fn} | {type:'rhythm'}
+   ============================================================ */
+const STAGES = [];
+const CARDS = {};
+function stage(id, name, line, defs){
+  const st = {id, name, line, cards: []};
+  for (const d of defs){ d.stage = STAGES.length; CARDS[d.id] = d; st.cards.push(d.id); }
+  STAGES.push(st);
+}
+
+// 1. Notes
+{
+  const defs = [];
+  const nat = [0,2,4,5,7,9,11], accs = [1,3,6,8,10];
+  const order = (s, pcs) => pcs.slice().sort((a, b) => ((a - OPEN[s]%12 + 12) % 12) - ((b - OPEN[s]%12 + 12) % 12));
+  for (const group of [nat, accs]) for (const s of STRINGS) for (const pc of order(s, group)){
+    defs.push({id:`n:${pc}:${s}`, make(){
+      const f = (pc - OPEN[s] % 12 + 12) % 12;
+      const frets = f === 0 ? [0, 12] : [f];
+      return {
+        prompt: `Play ${PC_BOTH[pc]}`, sub: `on ${strLabel(s)}`,
+        expect: {type:'test', ok: m => m % 12 === pc && playable(s, m, 0, 12)},
+        reveal: {dots: positionsPc(pc).map(p => ({...p, label: PC_NAME[pc], kind: p.s === s ? 'hit' : 'dim'})),
+                 text: `${PC_BOTH[pc]} on ${strLabel(s)} is fret ${frets.join(' and ')}.`}
+      };
+    }});
+  }
+  stage('notes', 'Notes',
+    'Twelve notes repeat forever. Each fret is one step. Every pair of letters is two steps apart, except B–C and E–F, which are one.', defs);
+}
+
+// 2. Octaves
+{
+  const defs = [];
+  for (const s of [6,5,4,3,2]) defs.push({id:`o:${s}:up`, dir: 12, s});
+  for (const s of [5,4,3,2,1]) defs.push({id:`o:${s}:down`, dir: -12, s});
+  for (const d of defs) d.make = function(){
+    const opts = []; for (let f = 0; f <= 12; f++){ const t = OPEN[d.s] + f + d.dir; if (positions(t).some(p => p.s !== d.s)) opts.push(f); }
+    const f = pick(opts), root = OPEN[d.s] + f, t = root + d.dir;
+    const name = PC_NAME[root % 12];
+    return {
+      prompt: `Play it an octave ${d.dir > 0 ? 'higher' : 'lower'}`, sub: `${name} · ${strLabel(d.s)}, fret ${f}`,
+      show: [{s:d.s, f, label:'1', kind:'root'}],
+      expect: {type:'seq', m:[t]},
+      reveal: {dots: [{s:d.s, f, label:'1', kind:'root'}, ...positions(t).map(p => ({...p, label:'8', kind:'hit'}))],
+               text: `The octave: ${positions(t).map(p => `${strLabel(p.s)} fret ${p.f}`).join(', ')}.`}
+    };
+  };
+  stage('octaves', 'Octaves',
+    'The same note appears all over the neck. Learn the shapes that join a note to itself. The B string is tuned one fret lower than the pattern, so any shape that crosses it shifts by one fret.', defs);
+}
+
+// 3. Intervals
+{
+  const defs = [];
+  for (const sym of ['5','3','♭3','4','2','6','♭7','7','♭6','♭2','♭5']) for (const s of STRINGS){
+    defs.push({id:`i:${sym}:${s}`, make(){
+      const semi = DEG[sym][0];
+      const opts = [];
+      for (let f = 0; f <= 12; f++){ const t = OPEN[s] + f + semi; if (positions(t).some(p => p.s === s || Math.abs(p.f - f) <= 5)) opts.push(f); }
+      const f = pick(opts), root = OPEN[s] + f, t = root + semi;
+      let rname = PC_NAME[root % 12];
+      if (badSpelling([spell(rname, sym)])) rname = [PC_SHARP[root % 12], PC_FLAT[root % 12]].find(r => !badSpelling([spell(r, sym)])) || rname;
+      const near = positions(t).filter(p => p.s === s || Math.abs(p.f - f) <= 5);
+      return {
+        prompt: `Play the ${sym}`, sub: `above ${rname} · ${strLabel(s)}, fret ${f}`,
+        show: [{s, f, label:'1', kind:'root'}],
+        expect: {type:'seq', m:[t]},
+        reveal: {dots: [{s, f, label:'1', kind:'root'}, ...near.map(p => ({...p, label:sym, kind:'hit'}))],
+                 text: `The ${sym} of ${rname} is ${spell(rname, sym)}, ${semi} frets above it.`}
+      };
+    }});
+  }
+  stage('intervals', 'Intervals',
+    'Every note is a distance from a root. Learn each distance as a shape and you no longer need note names.', defs);
+}
+
+// 4. Triads
+{
+  const SETS = [[6,5,4],[5,4,3],[4,3,2],[3,2,1]];
+  const INV = ['root position','1st inversion','2nd inversion'];
+  const defs = [];
+  for (const q of ['','m','°','+']) for (let inv = 0; inv < 3; inv++) for (let si = 0; si < 4; si++){
+    defs.push({id:`t:${q}:${inv}:${si}`, make(){
+      const set = SETS[si];
+      const degs = CHORDS[q].slice(inv).concat(CHORDS[q].slice(0, inv));
+      for (let tries = 0; tries < 100; tries++){
+        const root = goodRoot(q), rpc = pcOf(root);
+        const pcs = degs.map(d => (rpc + DEG[d][0]) % 12);
+        const f0s = shuffle([...Array(13).keys()]).filter(f => (OPEN[set[0]] + f) % 12 === pcs[0]);
+        for (const f0 of f0s){
+          const ms = [OPEN[set[0]] + f0];
+          for (let k = 1; k < 3; k++){ let m = ms[k-1] + 1; while (m % 12 !== pcs[k]) m++; ms.push(m); }
+          const fs = ms.map((m, k) => m - OPEN[set[k]]);
+          if (fs.some(f => f < 0 || f > MAXF) || Math.max(...fs) - Math.min(...fs) > 4) continue;
+          const name = root + q;
+          return {
+            prompt: `Play ${name}`, sub: `${INV[inv]} · strings ${set.join(' ')}, low to high`,
+            expect: {type:'seq', m: ms},
+            reveal: {dots: ms.map((m, k) => ({s:set[k], f:fs[k], label:degs[k], kind: degs[k] === '1' ? 'root' : 'hit'})),
+                     text: `${name} is ${chordNotes(root, q).join(' ')} (${CHORDS[q].join(' ')}).`}
+          };
+        }
+      }
+    }});
+  }
+  stage('triads', 'Triads',
+    'Three notes stacked in thirds make every basic chord. Play them low to high, one at a time, on the strings asked.', defs);
+}
+
+// 5. Scales
+function fingering(root, s, ms){
+  const f0 = root - OPEN[s], lo = Math.max(0, f0 - 2), hi = f0 + 4;
+  let cur = s; const out = [];
+  for (const m of ms){
+    let placed = null;
+    for (const t of STRINGS.filter(x => x <= cur)){ const f = m - OPEN[t]; if (f >= lo && f <= hi){ placed = {s:t, f}; break; } }
+    if (!placed) placed = positions(m).find(p => p.s <= cur) || positions(m)[0];
+    out.push(placed); cur = placed.s;
+  }
+  return out;
+}
+{
+  const defs = [];
+  for (const sc of Object.keys(SCALES)) for (const s of [6,5]){
+    defs.push({id:`s:${sc}:${s}`, make(){
+      const degs = SCALES[sc].concat('8');
+      let root, f;
+      for (let i = 0; i < 50; i++){ root = pick(ROOT_NAMES); f = (pcOf(root) - OPEN[s] % 12 + 12) % 12; if (f === 0) f = 12; if (f > 10) continue; if (!badSpelling(degs.map(d => spell(root, d)))) break; }
+      const rm = OPEN[s] + f;
+      const ms = degs.map(d => rm + DEG[d][0]);
+      const fing = fingering(rm, s, ms);
+      return {
+        prompt: `Play ${root} ${sc}`, sub: `from ${strLabel(s)}, fret ${f} · one octave up`,
+        show: [{s, f, label:'1', kind:'root'}],
+        expect: {type:'seq', m: ms},
+        reveal: {dots: fing.map((p, k) => ({...p, label: degs[k] === '8' ? '1' : degs[k], kind: k === 0 || k === degs.length - 1 ? 'root' : 'hit'})),
+                 text: `${root} ${sc}: ${degs.map(d => spell(root, d)).join(' ')}.`}
+      };
+    }});
+  }
+  stage('scales', 'Scales',
+    'A scale is a set of distances from a root. The modes are the major scale’s seven notes, started from a different degree, so each one has its own set of distances.', defs);
+}
+
+// chord-tone answers shared by chords, harmony, ear
+function pcsReveal(root, type, text){
+  const degs = CHORDS[type], rpc = pcOf(root);
+  const dots = [];
+  degs.forEach(d => positionsPc((rpc + DEG[d][0]) % 12).forEach(p => dots.push({...p, label:d, kind: d === '1' ? 'root' : 'hit'})));
+  return {dots, text};
+}
+// 6. Chords
+{
+  const defs = ['maj7','7','m7','m7♭5','°7','6','m6','sus2','sus4','m(maj7)'].map(type => ({id:`c:${type}`, make(){
+    const root = goodRoot(type), notes = chordNotes(root, type);
+    return {
+      prompt: `Play ${root}${type}`, sub: 'its notes from the root up, any octave',
+      expect: {type:'pcs', pcs: notes.map(pcOf)},
+      reveal: pcsReveal(root, type, `${root}${type}, ${CHORD_WORD[type]}: ${notes.join(' ')} (${CHORDS[type].join(' ')}).`)
+    };
+  }}));
+  stage('chords', 'Chords',
+    'Add a fourth note to a triad and you get a seventh or sixth chord. Replace the third and you get a suspended chord. Spell each one from the root up.', defs);
+}
+
+// 7. Harmony
+{
+  const defs = [];
+  for (const kind of [3, 7]) for (const i of [0,3,4,5,1,2,6]) defs.push({id:`h:${i}:${kind}`, make(){
+    const key = pick(KEYS), croot = spell(key, MAJOR[i]), type = (kind === 3 ? DIA3 : DIA7)[i];
+    const roman = (kind === 3 ? ROMAN3 : ROMAN7)[i], notes = chordNotes(croot, type);
+    return {
+      prompt: `Play the ${roman}`, sub: `in ${key} major · its notes from the root up`,
+      expect: {type:'pcs', pcs: notes.map(pcOf)},
+      reveal: pcsReveal(croot, type, `${roman} in ${key} major is ${croot}${type}: ${notes.join(' ')}.`)
+    };
+  }});
+  stage('harmony', 'Harmony',
+    'Build a chord on each note of a major scale, using only that scale’s notes, and you get the seven chords of the key. They are numbered by degree: upper case is major, lower case is minor.', defs);
+}
+
+// 8. Ear
+{
+  const defs = [];
+  for (const sym of ['5','3','♭3','8','4','2','6','♭7','7','♭6','♭2','♭5']) defs.push({id:`e:i:${sym}`, make(){
+    const semi = DEG[sym][0];
+    const s = pick([6,5,4]), f = 1 + rand(9), root = OPEN[s] + f, t = root + semi;
+    const near = positions(t).filter(p => p.s === s || Math.abs(p.f - f) <= 5);
+    return {
+      prompt: 'Play what you hear', sub: `the first note is ${strLabel(s)}, fret ${f}`,
+      show: [{s, f, label:'1', kind:'root'}],
+      audio: [[root, 0], [t, 0.8]],
+      expect: {type:'seq', m:[t]},
+      reveal: {dots: [{s, f, label:'1', kind:'root'}, ...near.map(p => ({...p, label:sym, kind:'hit'}))], text: `That was the ${sym}.`}
+    };
+  }});
+  for (const type of ['','m','°','+','maj7','7','m7','m7♭5']) defs.push({id:`e:c:${type}`, make(){
+    let s, f, rm, root;
+    do {
+      s = pick([6,5]); f = 1 + rand(8); rm = OPEN[s] + f;
+      root = [PC_NAME[rm % 12], PC_SHARP[rm % 12], PC_FLAT[rm % 12]].find(r => !badSpelling(chordNotes(r, type)));
+    } while (!root);
+    const ms = CHORDS[type].map(d => rm + DEG[d][0]);
+    const notes = chordNotes(root, type);
+    const audio = ms.map((m, k) => [m, k * 0.45]).concat(ms.map(m => [m, ms.length * 0.45 + 0.3]));
+    return {
+      prompt: 'Play what you hear', sub: `a chord on ${strLabel(s)}, fret ${f} · its notes from the root up`,
+      show: [{s, f, label:'1', kind:'root'}],
+      audio,
+      expect: {type:'pcs', pcs: notes.map(pcOf)},
+      reveal: pcsReveal(root, type, `That was ${root}${type}, ${CHORD_WORD[type]}: ${notes.join(' ')}.`)
+    };
+  }});
+  stage('ear', 'Ear',
+    'Hear it, then find it. The first note is shown. Everything else is a distance you already know.', defs);
+}
+
+// 9. Rhythm
+{
+  const SUB = {1:'Quarters', 2:'Eighths', 3:'Triplets', 4:'Sixteenths'};
+  const defs = [];
+  for (const bpm of [60, 90, 120]) for (const sub of [1,2,3,4]) defs.push({id:`r:${sub}:${bpm}`, make(){
+    return {prompt: `${SUB[sub]} at ${bpm}`, sub: `${sub === 1 ? 'one note' : sub + ' notes'} per beat · any note`, expect: {type:'rhythm', sub, bpm}};
+  }});
+  stage('rhythm', 'Rhythm',
+    'Play one note on every subdivision of the click, for four bars after a one-bar count-in. Use headphones if you can. What counts is how even you are, shown as the spread of your notes in milliseconds.', defs);
+}
+
+/* ============================================================
+   Memory: spaced repetition, stored locally.
+   box 0..7. A fast, correct answer moves a card up a box, slow moves it down one, a miss sends it to 0.
+   ============================================================ */
+const MIN = 60e3, DAY = 864e5;
+const IV = [0, 5*MIN, DAY, 3*DAY, 7*DAY, 16*DAY, 35*DAY, 90*DAY];
+const LEARNED = 2, KNOWN = 4, NEW_PER_SESSION = 8, SESSION_MAX = 25, UNLOCK = 0.9;
+const KEY = 'fretboard.v1';
+let S = {c:{}, intro:{}, lefty:false};
+try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch(e){}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+const card = id => S.c[id] || {b:0, d:0, n:0};
+
+function stageStats(i){
+  const ids = STAGES[i].cards;
+  let learned = 0, known = 0;
+  for (const id of ids){ const c = card(id); if (c.b >= LEARNED) learned++; if (c.b >= KNOWN) known++; }
+  return {total: ids.length, learned, known};
+}
+function unlocked(i){
+  if (i === 0) return true;
+  const st = stageStats(i - 1);
+  return unlocked(i - 1) && st.learned >= Math.ceil(st.total * UNLOCK);
+}
+function grade(id, result){
+  const c = card(id);
+  c.n++;
+  if (result === 'fast') c.b = Math.min(c.b + 1, IV.length - 1);
+  else if (result === 'slow') c.b = Math.max(1, c.b - 1);
+  else c.b = 0;
+  // Due a little early for day-long intervals, so "tomorrow" means tomorrow whatever the hour.
+  c.d = Date.now() + (IV[c.b] >= DAY ? IV[c.b] - 4 * 3600e3 : IV[c.b]);
+  S.c[id] = c; save();
+  return c;
+}
+function buildQueue(){
+  const now = Date.now(), due = [], fresh = [], later = [];
+  STAGES.forEach((st, i) => {
+    if (!unlocked(i)) return;
+    for (const id of st.cards){
+      const c = S.c[id];
+      if (!c) fresh.push(id);
+      else if (c.d <= now) due.push(id);
+      else later.push(id);
+    }
+  });
+  due.sort((a, b) => S.c[a].d - S.c[b].d);
+  let q = due.slice(0, SESSION_MAX);
+  if (q.length < 15) q = q.concat(fresh.slice(0, NEW_PER_SESSION));
+  return {q, due: due.length, fresh: Math.min(fresh.length, NEW_PER_SESSION),
+          ahead: later.sort((a, b) => S.c[a].d - S.c[b].d).slice(0, 10)};
+}
+
+/* ============================================================
+   Audio: microphone, pitch (YIN), onsets (worklet), tones, click
+   ============================================================ */
+let ac = null, an = null, tbuf = null, onsetNode = null;
+const onsetListeners = new Set();
+async function audio(){
+  if (ac){ if (ac.state !== 'running') await ac.resume(); return; }
+  ac = new (window.AudioContext || window.webkitAudioContext)({latencyHint:'interactive'});
+  const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  const src = ac.createMediaStreamSource(stream);
+  // Two low-passes: the guitar's fundamentals stay, the metronome click (2.6 kHz) is mostly removed.
+  const lp1 = ac.createBiquadFilter(), lp2 = ac.createBiquadFilter();
+  lp1.type = lp2.type = 'lowpass'; lp1.frequency.value = lp2.frequency.value = 1400;
+  an = ac.createAnalyser(); an.fftSize = 2048; tbuf = new Float32Array(an.fftSize);
+  src.connect(lp1); lp1.connect(lp2); lp2.connect(an);
+  try {
+    const code = `class O extends AudioWorkletProcessor{constructor(){super();this.h=new Float32Array(8);this.i=0;this.last=-1}
+      process(inp){const x=inp[0]&&inp[0][0];if(!x)return true;let e=0;for(let k=0;k<x.length;k++)e+=x[k]*x[k];e/=x.length;
+      let m=0;for(let k=0;k<8;k++)m+=this.h[k];m/=8;
+      if(e>4e-5&&e>m*4&&currentTime-this.last>0.06){this.last=currentTime;this.port.postMessage(currentTime)}
+      this.h[this.i]=e;this.i=(this.i+1)%8;return true}}registerProcessor('onsets',O);`;
+    await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([code], {type:'application/javascript'})));
+    onsetNode = new AudioWorkletNode(ac, 'onsets');
+    const sink = ac.createGain(); sink.gain.value = 0;
+    lp2.connect(onsetNode); onsetNode.connect(sink); sink.connect(ac.destination);
+    onsetNode.port.onmessage = e => { for (const f of onsetListeners) f(e.data); };
+  } catch(e){ console.warn('No onset detection', e); }
+}
+const mFreq = m => 440 * Math.pow(2, (m - 69) / 12);
+function tone(m, when, len = 1.3){
+  const o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.value = mFreq(m);
+  lp.type = 'lowpass'; lp.frequency.setValueAtTime(mFreq(m) * 6, when); lp.frequency.exponentialRampToValueAtTime(mFreq(m) * 1.5, when + len);
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.25, when + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, when + len);
+  o.connect(lp); lp.connect(g); g.connect(ac.destination); o.start(when); o.stop(when + len + 0.05);
+}
+function click(when, accent){
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.value = accent ? 3200 : 2600;
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.5, when + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, when + 0.03);
+  o.connect(g); g.connect(ac.destination); o.start(when); o.stop(when + 0.05);
+}
+
+// YIN pitch detection on the analyser buffer
+const W = 1024; let yd = null;
+function yin(buf, sr){
+  const tMin = Math.floor(sr / 1400), tMax = Math.min(Math.floor(sr / 70), buf.length - W - 1);
+  if (!yd || yd.length !== tMax + 1) yd = new Float32Array(tMax + 1);
+  for (let t = 1; t <= tMax; t++){ let s = 0; for (let i = 0; i < W; i++){ const d = buf[i] - buf[i + t]; s += d * d; } yd[t] = s; }
+  let run = 0; yd[0] = 1;
+  for (let t = 1; t <= tMax; t++){ run += yd[t]; yd[t] = run ? yd[t] * t / run : 1; }
+  let tau = -1;
+  for (let t = tMin; t <= tMax; t++){
+    if (yd[t] < 0.15){ while (t + 1 <= tMax && yd[t + 1] < yd[t]) t++; tau = t; break; }
+  }
+  if (tau < 0) return null;
+  const a = yd[tau - 1], b = yd[tau], c = tau + 1 <= tMax ? yd[tau + 1] : b;
+  const shift = (a + c - 2 * b) ? (a - c) / (2 * (a + c - 2 * b)) : 0;
+  return sr / (tau + shift);
+}
+
+// Turns raw pitch frames into note events. A note fires once it has been stable for STABLE frames,
+// and again only after silence or a new pluck (onset).
+const STABLE = 6, GATE = 0.006;
+const det = {cand:null, count:0, current:null, quiet:0, muteUntil:0, onNote:null, last:null};
+onsetListeners.add(() => { det.current = null; });
+function listen(){
+  if (!an) return null;
+  an.getFloatTimeDomainData(tbuf);
+  let rms = 0; for (let i = 0; i < tbuf.length; i++) rms += tbuf[i] * tbuf[i];
+  rms = Math.sqrt(rms / tbuf.length);
+  if (rms < GATE){ det.cand = null; det.count = 0; if (++det.quiet > 5) det.current = null; return null; }
+  det.quiet = 0;
+  const f = yin(tbuf, ac.sampleRate);
+  if (!f) return null;
+  const mf = 69 + 12 * Math.log2(f / 440), m = Math.round(mf);
+  if (m < 38 || m > 88) return null;
+  if (m === det.cand) det.count++; else { det.cand = m; det.count = 1; }
+  if (ac.currentTime < det.muteUntil){ det.current = m; return {m, cents:(mf - m) * 100}; }
+  if (det.count === STABLE && m !== det.current){ det.current = m; if (det.onNote) det.onNote(m); }
+  return {m, cents: (mf - m) * 100, stable: det.count >= STABLE};
+}
+const midiName = m => PC_NAME[m % 12] + (Math.floor(m / 12) - 1);
+
+/* ============================================================
+   Fretboard (vertical, low E on the left; mirrored when left-handed)
+   ============================================================ */
+const NS = 'http://www.w3.org/2000/svg';
+function board(dots = []){
+  const top = 26, fh = 25, sx = 34, sw = 27, frets = MAXF;
+  const w = sx * 2 + sw * 5, h = top + frets * fh + 8;
+  const x = s => { const i = 6 - s; return sx + sw * (S.lefty ? 5 - i : i); };
+  const y = f => f === 0 ? top - 13 : top + (f - 0.5) * fh;
+  let g = `<svg class="board" viewBox="0 0 ${w} ${h}" xmlns="${NS}" role="img" aria-label="Fretboard">`;
+  g += `<line x1="${sx}" y1="${top}" x2="${sx + sw * 5}" y2="${top}" stroke="var(--fg)" stroke-width="3"/>`;
+  for (let f = 1; f <= frets; f++) g += `<line x1="${sx}" y1="${top + f * fh}" x2="${sx + sw * 5}" y2="${top + f * fh}" stroke="var(--line)"/>`;
+  for (const s of STRINGS) g += `<line x1="${x(s)}" y1="${top}" x2="${x(s)}" y2="${top + frets * fh}" stroke="var(--dim)" stroke-width="${s >= 4 ? 1.4 : 1}"/>`;
+  const nx = S.lefty ? w - 12 : 12;
+  for (const f of [3,5,7,9,12,15]) g += `<text x="${nx}" y="${y(f) + 4}" font-size="11" text-anchor="middle" fill="var(--dim)">${f}</text>`;
+  for (const d of dots){
+    const cx = x(d.s), cy = y(d.f);
+    const fill = d.kind === 'root' ? 'var(--accent)' : d.kind === 'hit' ? 'var(--fg)' : 'var(--bg)';
+    const stroke = d.kind === 'root' ? 'var(--accent)' : d.kind === 'hit' ? 'var(--fg)' : 'var(--dim)';
+    const tc = d.kind === 'dim' ? 'var(--dim)' : 'var(--bg)';
+    g += `<circle cx="${cx}" cy="${cy}" r="10.5" fill="${fill}" stroke="${stroke}"/>`;
+    if (d.label) g += `<text x="${cx}" y="${cy + 3.8}" font-size="${d.label.length > 2 ? 8 : 10.5}" text-anchor="middle" fill="${tc}">${d.label}</text>`;
+  }
+  return g + '</svg>';
+}
+
+/* ============================================================
+   Views
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const P = $('#practice');
+let view = 'practice', raf = 0;
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => go(b.dataset.v));
+function go(v){
+  if (v !== 'practice') stopDrill();
+  view = v;
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-current', b.dataset.v === v));
+  document.querySelectorAll('main').forEach(m => m.classList.toggle('on', m.id === v));
+  if (v === 'tuner') startTuner();
+  if (v === 'path') renderPath();
+  if (v === 'practice') renderHome();
+}
+
+function micError(e){
+  P.innerHTML = `<div class="center"><p>The microphone is needed: you answer by playing.</p><p class="dim small">${e && e.name === 'NotAllowedError' ? 'Allow microphone access for this site, then try again.' : 'No microphone could be opened.'}</p><button class="big" id="retry">Try again</button></div>`;
+  $('#retry').onclick = () => renderHome();
+}
+
+// ---------- tuner ----------
+async function startTuner(){
+  try { await audio(); } catch(e){ $('#tname').textContent = '–'; $('#tnote').textContent = 'The tuner needs the microphone.'; return; }
+  $('#tnote').textContent = 'E A D G B E';
+  cancelAnimationFrame(raf);
+  let shown = null, hold = 0;
+  const loop = () => {
+    if (view !== 'tuner') return;
+    const r = listen();
+    if (r && r.stable){ shown = r; hold = 30; } else if (hold > 0) hold--; else shown = null;
+    const needle = $('#needle');
+    if (shown){
+      $('#tname').textContent = PC_NAME[shown.m % 12];
+      const c = Math.round(shown.cents);
+      $('#tcents').textContent = `${midiName(shown.m)} · ${c > 0 ? '+' : ''}${c} cents`;
+      needle.style.opacity = 1; needle.style.left = `${50 + Math.max(-50, Math.min(50, shown.cents))}%`;
+      needle.classList.toggle('ok', Math.abs(shown.cents) < 5);
+    } else { needle.style.opacity = 0; $('#tcents').textContent = ''; }
+    raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+// ---------- path ----------
+function renderPath(){
+  const el = $('#path');
+  let h = '<ol class="path">';
+  STAGES.forEach((st, i) => {
+    const s = stageStats(i), open = unlocked(i);
+    h += `<li class="${open ? '' : 'locked'}"><div class="row"><span class="name">${i + 1}. ${st.name}</span>`
+       + `<span class="count">${open ? `${s.known} / ${s.total}` : s.total}</span></div>`
+       + `<p>${st.line}</p>`
+       + (open ? `<div class="bar"><b style="width:${100 * s.learned / s.total}%"></b><u style="width:${100 * s.known / s.total}%"></u></div>` : '')
+       + '</li>';
+  });
+  h += '</ol><p class="dim small" style="margin-bottom:16px">The number is how many you know. The line shows how far you are: grey is learned (answered quickly twice), solid is known (answered quickly over several days). Each stage opens when 90% of the one before is learned.</p>';
+  h += `<div class="foot"><button id="lefty">Left-handed: ${S.lefty ? 'on' : 'off'}</button><button id="erase">Erase progress</button></div>`;
+  el.innerHTML = h;
+  $('#lefty').onclick = () => { S.lefty = !S.lefty; save(); renderPath(); };
+  $('#erase').onclick = () => { if (confirm('Erase all progress?')){ S.c = {}; S.intro = {}; save(); renderPath(); } };
+}
+
+// ---------- practice ----------
+let sess = null;
+function renderHome(){
+  stopDrill();
+  const b = buildQueue();
+  let line;
+  if (b.q.length) line = [b.due && `${b.due} due`, (b.q.length > Math.min(b.due, SESSION_MAX)) && `${b.fresh} new`].filter(Boolean).join(' · ');
+  else line = 'Nothing due. Practise ahead, or come back tomorrow.';
+  P.innerHTML = `<div class="center"><button class="big" id="begin">Begin</button><p class="dim small">${line}</p></div>`;
+  $('#begin').onclick = async () => {
+    try { await audio(); } catch(e){ return micError(e); }
+    const q = b.q.length ? b.q : b.ahead;
+    if (!q.length) return;
+    sess = {q: q.slice(), done: 0, first: 0, seen: new Set()};
+    next();
+  };
+}
+
+function stopDrill(){
+  cancelAnimationFrame(raf);
+  det.onNote = null;
+  if (sess && sess.timer) clearTimeout(sess.timer);
+  if (sess && sess.offOnset) onsetListeners.delete(sess.offOnset);
+}
+
+function next(){
+  stopDrill();
+  if (!sess.q.length || sess.done >= SESSION_MAX + 10) return finish();
+  const id = sess.q.shift(), def = CARDS[id], st = STAGES[def.stage];
+  if (!S.intro[st.id]){
+    P.innerHTML = '';
+    const o = document.createElement('div');
+    o.className = 'overlay';
+    o.innerHTML = `<div class="stage">Stage ${def.stage + 1}</div><h2>${st.name}</h2><p>${st.line}</p><button>Continue</button>`;
+    o.querySelector('button').onclick = () => { S.intro[st.id] = 1; save(); o.remove(); sess.q.unshift(id); next(); };
+    document.body.appendChild(o);
+    return;
+  }
+  const inst = def.make();
+  sess.cur = {id, inst, def};
+  if (inst.expect.type === 'rhythm') return rhythm(id, inst);
+  drill(id, inst, st);
+}
+
+function finish(){
+  stopDrill();
+  const k = STAGES.reduce((a, _, i) => a + stageStats(i).known, 0);
+  const total = Object.keys(CARDS).length;
+  P.innerHTML = `<div class="center"><p style="font-size:22px">Done.</p><p class="dim">${sess.first} of ${sess.seen.size} right first time.</p><p class="dim small">${k} of ${total} known.</p><button class="big" id="again" style="margin-top:20px">Continue</button></div>`;
+  $('#again').onclick = renderHome;
+  sess = null;
+}
+
+function afterAnswer(id, result){
+  const c = grade(id, result);
+  const firstSight = !sess.seen.has(id);
+  sess.seen.add(id); sess.done++;
+  if (firstSight && result === 'fast') sess.first++;
+  // Bring back, later in this session, anything not yet answered quickly twice.
+  if (c.b < LEARNED){
+    const at = result === 'miss' ? Math.min(3, sess.q.length) : sess.q.length;
+    sess.q.splice(at, 0, id);
+  }
+}
+
+function drill(id, inst, st){
+  P.innerHTML = `
+    <div class="stage">${st.name}</div>
+    <div class="prompt" id="pr">${inst.prompt}</div>
+    <div class="sub">${inst.sub}</div>
+    <div class="status"><span class="hear" id="hear"></span>
+      <span class="actions">${inst.audio ? '<button id="replay">Hear again</button>' : ''}<button id="show">Show</button></span></div>
+    <div class="msg" id="msg"></div>
+    <div class="boardwrap" id="bw">${board(inst.show)}</div>`;
+  const ex = inst.expect;
+  const target = ex.type === 'seq' ? ex.m.length : ex.type === 'pcs' ? ex.pcs.length : 1;
+  const fastMs = target === 1 ? 3000 : 2000 + 1300 * target;
+  let got = [], t0 = performance.now(), over = false;
+  const hits = [...(inst.show || [])];
+
+  const playAudio = () => {
+    const now = ac.currentTime + 0.05;
+    let end = now;
+    for (const [m, t] of inst.audio){ tone(m, now + t); end = Math.max(end, now + t + 1.3); }
+    det.muteUntil = end + 0.15;
+    t0 = performance.now() + (end - now) * 1000;
+  };
+  if (inst.audio) playAudio();
+
+  const finishCard = result => {
+    over = true; det.onNote = null;
+    afterAnswer(id, result);
+    if (result === 'miss'){
+      $('#pr').classList.add('dim');
+      $('#msg').textContent = inst.reveal.text;
+      $('#bw').innerHTML = board(inst.reveal.dots);
+      $('#show').textContent = 'Next';
+      $('#show').onclick = next;
+      $('#bw').onclick = next;
+    } else {
+      $('#pr').classList.add('acc');
+      $('#msg').innerHTML = result === 'slow' ? '<span class="dim">Right, but slow.</span>' : '';
+      $('#bw').innerHTML = board(inst.reveal.dots);
+      sess.timer = setTimeout(next, result === 'slow' ? 1600 : 900);
+    }
+  };
+
+  det.onNote = m => {
+    if (over) return;
+    let ok;
+    if (ex.type === 'test') ok = ex.ok(m);
+    else if (ex.type === 'seq'){
+      if (got.includes(m)) return;                 // a string still ringing
+      ok = m === ex.m[got.length];
+    } else {
+      const pc = m % 12;
+      if (got.includes(pc)) return;
+      ok = pc === ex.pcs[got.length];
+    }
+    if (!ok){ $('#hear').textContent = `heard ${PC_NAME[m % 12]}`; return finishCard('miss'); }
+    got.push(ex.type === 'pcs' ? m % 12 : m);
+    if (ex.type === 'seq'){
+      const k = got.length - 1, d = inst.reveal.dots.find(x => OPEN[x.s] + x.f === m && x.label !== undefined);
+      if (d && !hits.some(h => h.s === d.s && h.f === d.f)) hits.push(d);
+      $('#bw').innerHTML = board(hits);
+    }
+    if (target > 1) $('#msg').innerHTML = `<span class="dim">${got.length} of ${target}</span>`;
+    if (got.length >= target || ex.type === 'test') finishCard(performance.now() - t0 <= fastMs ? 'fast' : 'slow');
+  };
+
+  $('#show').onclick = () => { if (!over) finishCard('miss'); };
+  if (inst.audio) $('#replay').onclick = () => { if (!over) playAudio(); };
+
+  const loop = () => {
+    const r = listen();
+    const h = $('#hear');
+    if (h && !over) h.textContent = r && r.stable ? PC_NAME[r.m % 12] : '';
+    raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+function rhythm(id, inst){
+  const {sub, bpm} = inst.expect;
+  P.innerHTML = `
+    <div class="stage">Rhythm</div>
+    <div class="prompt">${inst.prompt}</div>
+    <div class="sub">${inst.sub}</div>
+    <div class="beats" id="beats"><i></i><i></i><i></i><i></i></div>
+    <div class="center" id="rc" style="flex:0;margin-top:10px"><button class="big" id="go">Start</button><p class="dim small" id="rmsg">Headphones help.</p></div>`;
+  $('#go').onclick = () => {
+    if (!onsetNode){ $('#rmsg').textContent = 'This browser can’t time notes, so rhythm is skipped.'; afterAnswer(id, 'slow'); sess.timer = setTimeout(next, 2000); return; }
+    $('#rc').innerHTML = '<p class="dim">Count in…</p>';
+    const beat = 60 / bpm, start = ac.currentTime + 0.3, t1 = start + 4 * beat, N = 16 * sub, step = beat / sub;
+    for (let b = 0; b < 20; b++) click(start + b * beat, b % 4 === 0);
+    const onsets = [];
+    sess.offOnset = t => { if (t > t1 - step / 2 && t < t1 + N * step - step / 2) onsets.push(t); };
+    onsetListeners.add(sess.offOnset);
+    const dots = [...document.querySelectorAll('#beats i')];
+    const loop = () => {
+      const now = ac.currentTime - start;
+      const b = Math.floor(now / beat);
+      dots.forEach((d, k) => { d.classList.toggle('on', b >= 0 && b < 20 && b % 4 === k && now - b * beat < 0.12); d.classList.toggle('one', k === 0); });
+      if (b === 4) $('#rc').innerHTML = '<p class="dim">Play</p>';
+      if (ac.currentTime < t1 + N * step + 0.2) raf = requestAnimationFrame(loop);
+      else score();
+    };
+    loop();
+    const score = () => {
+      onsetListeners.delete(sess.offOnset);
+      const used = new Set(), offs = [];
+      for (const t of onsets){
+        const k = Math.round((t - t1) / step);
+        if (k < 0 || k >= N || used.has(k)) continue;
+        used.add(k); offs.push((t - t1 - k * step) * 1000);
+      }
+      const extra = onsets.length - used.size;
+      const mean = offs.reduce((a, b) => a + b, 0) / (offs.length || 1);
+      const spread = Math.sqrt(offs.reduce((a, b) => a + (b - mean) ** 2, 0) / (offs.length || 1));
+      const pass = used.size >= 0.9 * N && extra <= 0.1 * N && spread <= 25;
+      afterAnswer(id, pass ? 'fast' : 'miss');
+      $('#rc').innerHTML = `<p style="font-size:26px" class="${pass ? 'acc' : ''}">±${Math.round(spread)} ms</p>`
+        + `<p class="dim small">${used.size} of ${N} notes${extra ? `, ${extra} extra` : ''}. ${pass ? 'Even enough.' : 'Aim for every note, within ±25 ms.'}</p>`
+        + '<button class="big" id="nx" style="margin-top:16px">Next</button>';
+      $('#nx').onclick = next;
+    };
+  };
+}
+
+renderHome();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
