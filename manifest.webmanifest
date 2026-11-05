@@ -1,6 +1,6 @@
 {
-  "name": "Fretboard",
-  "short_name": "Fretboard",
+  "name": "wholeguitar",
+  "short_name": "wholeguitar",
   "description": "Learn the guitar neck by playing it.",
   "start_url": "./",
   "scope": "./",

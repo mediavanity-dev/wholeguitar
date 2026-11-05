@@ -1,13 +1,13 @@
-# Fretboard
+# wholeguitar
 
-Learn the guitar neck by playing it: the app asks, you play, the microphone checks. Live at **https://mediavanity-dev.github.io/fretboard/**.
+Learn the guitar neck by playing it: the app asks, you play, the microphone checks. Live at **https://mediavanity-dev.github.io/wholeguitar/**.
 
 ## Where things are
 
 | What | Where |
 |---|---|
 | Code (local) | `C:\Users\media\Desktop\dans stuff\Development\wholeguitar` |
-| Code (GitHub) | https://github.com/mediavanity-dev/fretboard (public, account `mediavanity-dev`) |
+| Code (GitHub) | https://github.com/mediavanity-dev/wholeguitar (public, account `mediavanity-dev`) |
 | Hosting | GitHub Pages, from `main` / root. Tracked on the [dashboard](https://mediavanity-dev.github.io/dashboard/). |
 
 ## What it teaches
@@ -37,7 +37,7 @@ Sight reading and technique are left out on purpose.
 
 - **Answers** are notes, detected from the microphone. A note counts once it's stable for about 100 ms. Sequences (triads, scales, chords) are played one note at a time.
 - **Memory** is a Leitner schedule (5 min, 1, 3, 7, 16, 35, 90 days). A fast, correct answer moves a card up a box, a slow one moves it down one, and a miss sends it back to the start. "Learned" means box 2 or higher, "known" means box 4 or higher.
-- **Progress** is kept in the browser's `localStorage` (`fretboard.v1`), with no account.
+- **Progress** is kept in the browser's `localStorage` (`wholeguitar.v1`; earlier `fretboard.v1` is read once and carried over), with no account.
 - **Analytics** use the shared GA4 tag (`G-FGFP95J3W9`), the same one as the other sites.
 
 Run locally with any static server (the microphone needs `localhost` or https), e.g. `npx serve .`.

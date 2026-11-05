@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Fretboard</title>
+<title>wholeguitar</title>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FGFP95J3W9"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -505,9 +505,9 @@ function pcsReveal(root, type, text){
 const MIN = 60e3, DAY = 864e5;
 const IV = [0, 5*MIN, DAY, 3*DAY, 7*DAY, 16*DAY, 35*DAY, 90*DAY];
 const LEARNED = 2, KNOWN = 4, NEW_PER_SESSION = 8, SESSION_MAX = 25, UNLOCK = 0.9;
-const KEY = 'fretboard.v1';
+const KEY = 'wholeguitar.v1', OLD_KEY = 'fretboard.v1';  // the app was called Fretboard before
 let S = {c:{}, intro:{}, lefty:false};
-try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch(e){}
+try { const raw = localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch(e){}
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
 const card = id => S.c[id] || {b:0, d:0, n:0};
 
