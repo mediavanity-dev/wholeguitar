@@ -28,6 +28,8 @@ One linear path. Each stage opens when 90% of the one before is learned.
 
 Sight reading and technique are left out on purpose.
 
+**Tunings** (Path → Tuning): Standard, half step down, whole step down, Drop D, Drop D♭, Drop C, DADGAD, Open G, Open D. Note names are what actually sounds, and every position, shape and explanation is worked out from the tuning. Each tuning keeps its own progress, because each is a different neck.
+
 ## How it works
 
 | File | Purpose |
@@ -37,7 +39,7 @@ Sight reading and technique are left out on purpose.
 
 - **Answers** are notes, detected from the microphone. A note counts once it's stable for about 100 ms. Sequences (triads, scales, chords) are played one note at a time.
 - **Memory** is a Leitner schedule (5 min, 1, 3, 7, 16, 35, 90 days). A fast, correct answer moves a card up a box, a slow one moves it down one, and a miss sends it back to the start. "Learned" means box 2 or higher, "known" means box 4 or higher.
-- **Progress** is kept in the browser's `localStorage` (`wholeguitar.v1`; earlier `fretboard.v1` is read once and carried over), with no account.
+- **Progress** is kept in the browser's `localStorage` (`wholeguitar.v1`; earlier `fretboard.v1` is read once and carried over). Other tunings’ progress is kept under `byTuning`, with no account.
 - **Analytics** use the shared GA4 tag (`G-FGFP95J3W9`), the same one as the other sites.
 
 Run locally with any static server (the microphone needs `localhost` or https), e.g. `npx serve .`.

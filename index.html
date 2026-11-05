@@ -91,8 +91,10 @@ ol.path p{font-size:15px;color:var(--dim);margin-top:4px}
 .bar{height:2px;background:var(--line);margin-top:8px;position:relative}
 .bar b,.bar u{position:absolute;left:0;top:0;bottom:0}
 .bar b{background:var(--dim)} .bar u{background:var(--fg)}
-.foot{display:flex;gap:24px;border-top:1px solid var(--line);padding-top:16px;margin-top:auto}
+.foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:16px 24px;border-top:1px solid var(--line);padding-top:16px;margin-top:auto}
 .foot button{color:var(--dim);font-size:14px}
+.foot .tuning{color:var(--dim);font-size:14px;flex-basis:100%}
+.foot select{font:inherit;color:var(--fg);background:var(--bg);border:0;border-bottom:1px solid var(--line);padding:2px 0;margin-left:6px}
 </style>
 </head>
 <body>
@@ -109,7 +111,7 @@ ol.path p{font-size:15px;color:var(--dim);margin-top:4px}
     <div class="tname" id="tname">–</div>
     <div class="tcents" id="tcents"></div>
     <div class="track"><div class="needle" id="needle"></div></div>
-    <p class="dim small" id="tnote" style="margin-top:24px">E A D G B E</p>
+    <p class="dim small" id="tnote" style="margin-top:24px"></p>
   </div>
 </main>
 
@@ -118,9 +120,35 @@ ol.path p{font-size:15px;color:var(--dim);margin-top:4px}
 <script>
 "use strict";
 /* ============================================================
+   Saved state (read first: the tuning shapes everything below).
+   S.c holds progress for the current tuning; other tunings' progress waits in S.byTuning.
+   ============================================================ */
+const KEY = 'wholeguitar.v1', OLD_KEY = 'fretboard.v1';  // the app was called Fretboard before
+let S = {c:{}, intro:{}, lefty:false, tuning:'standard', byTuning:{}};
+try { const raw = localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch(e){}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+/* ============================================================
    Music
    ============================================================ */
-const OPEN = {6:40, 5:45, 4:50, 3:55, 2:59, 1:64};   // standard tuning, MIDI
+// Open strings as MIDI, string 6 to string 1. Names are the notes that actually sound.
+const TUNINGS = {
+  standard:  {name:'Standard',          m:[40,45,50,55,59,64], names:'E A D G B E'},
+  halfdown:  {name:'Half step down',    m:[39,44,49,54,58,63], names:'E♭ A♭ D♭ G♭ B♭ E♭'},
+  wholedown: {name:'Whole step down',   m:[38,43,48,53,57,62], names:'D G C F A D'},
+  dropd:     {name:'Drop D',            m:[38,45,50,55,59,64], names:'D A D G B E'},
+  dropdb:    {name:'Drop D♭ (half step down)', m:[37,44,49,54,58,63], names:'D♭ A♭ D♭ G♭ B♭ E♭'},
+  dropc:     {name:'Drop C',            m:[36,43,48,53,57,62], names:'C G C F A D'},
+  dadgad:    {name:'DADGAD',            m:[38,45,50,55,57,62], names:'D A D G A D'},
+  openg:     {name:'Open G',            m:[38,43,50,55,59,62], names:'D G D G B D'},
+  opend:     {name:'Open D',            m:[38,45,50,54,57,62], names:'D A D F♯ A D'},
+};
+if (!TUNINGS[S.tuning]) S.tuning = 'standard';
+const TUNING = TUNINGS[S.tuning];
+const OPEN = {6:TUNING.m[0], 5:TUNING.m[1], 4:TUNING.m[2], 3:TUNING.m[3], 2:TUNING.m[4], 1:TUNING.m[5]};
+const OPEN_NAME = Object.fromEntries(TUNING.names.split(' ').map((n, i) => [6 - i, n]));
+// True when the strings are spaced like standard (fourths, with a third between 3 and 2), just shifted.
+const STANDARD_SHAPES = TUNING.m.every((m, i) => m - TUNINGS.standard.m[i] === TUNING.m[0] - 40);
 const STRINGS = [6,5,4,3,2,1];
 const MAXF = 15;
 const LETTERS = 'CDEFGAB';
@@ -225,7 +253,14 @@ function stage(id, name, line, defs){
 //   f. sweeps: one note on every string, low to high, so each note becomes one pattern
 {
   const NAT = [0,2,4,5,7,9,11], ACC = [1,3,6,8,10], MARKS = [0,3,5,7,9,12];
-  const STRING_NAME = {6:'low E', 5:'A', 4:'D', 3:'G', 2:'B', 1:'high E'};
+  const STRING_NAME = {};
+  for (const s of STRINGS){
+    const same = STRINGS.filter(t => OPEN_NAME[t] === OPEN_NAME[s]);   // low to high
+    const tag = (same.length === 2 ? ['low', 'high'] : same.length === 3 ? ['lowest', 'middle', 'highest'] : [''])[same.indexOf(s)];
+    STRING_NAME[s] = (tag ? tag + ' ' : '') + OPEN_NAME[s];
+  }
+  const W = ['no', 'one', 'two', 'three', 'four', 'five'];
+  const frets = n => `${W[n]} fret${n === 1 ? '' : 's'}`;
   const fretOn = (s, pc) => (pc - OPEN[s] % 12 + 12) % 12;
   const at = f => f === 0 ? 'open' : `fret ${f}`;
   const nameAt = (s, f) => PC_NAME[(OPEN[s] + f) % 12];
@@ -234,6 +269,7 @@ function stage(id, name, line, defs){
   const noteCard = (s, pc, explain, source) => ({id:`n:${pc}:${s}`, make(){
     const f = fretOn(s, pc), from = source && source(f);
     const dots = allDots(pc, s).map(d => from && d.s === from.s && d.f === from.f ? {...d, kind:'root'} : d);
+    if (from && !dots.some(d => d.kind === 'root')) dots.push({...from, label: PC_NAME[pc], kind:'root'});
     return {
       prompt: `Play ${PC_BOTH[pc]}`, sub: `on ${strLabel(s)}`, strings: [s],
       expect: {type:'test', ok: m => m % 12 === pc && playable(s, m, 0, 12)},
@@ -248,50 +284,50 @@ function stage(id, name, line, defs){
       prompt: `Play the ${STRING_NAME[s]} string`, sub: 'open',
       expect: {type:'test', ok: m => m === OPEN[s] || m === OPEN[s] + 12},
       reveal: {dots: [{s, f:0, label: PC_NAME[OPEN[s] % 12], kind:'hit'}],
-               text: `The ${STRING_NAME[s]} string is string ${s}. Low to high: E A D G B E (Eddie Ate Dynamite, Good Bye Eddie).`}
+               text: `The ${STRING_NAME[s]} string is string ${s}. Low to high: ${TUNING.names}${S.tuning === 'standard' ? ' (Eddie Ate Dynamite, Good Bye Eddie)' : ''}.`}
     };
   }});
 
   // b–d. the two bass strings
   const bass = [6, 5];
+  // Landmarks are whatever notes sit on the marked frets, sharp or not, so in any tuning every other note is a fret or two from one.
   const landmark = (s, pc) => MARKS.includes(fretOn(s, pc));
-  for (const s of bass) for (const pc of NAT.filter(pc => landmark(s, pc)).sort((a, b) => fretOn(s, a) - fretOn(s, b)))
-    defs.push(noteCard(s, pc, f => `${PC_NAME[pc]} on ${strLabel(s)} is ${f === 0 ? 'the open string, and fret 12' : `fret ${f}, a marked fret`}.`));
+  const nm = pc => NAT.includes(pc) ? PC_NAME[pc] : PC_BOTH[pc];
+  for (const s of bass) for (const pc of NAT.concat(ACC).filter(pc => landmark(s, pc)).sort((a, b) => fretOn(s, a) - fretOn(s, b)))
+    defs.push(noteCard(s, pc, f => `${nm(pc)} on ${strLabel(s)} is ${f === 0 ? 'the open string, and fret 12' : `fret ${f}, a marked fret`}.`));
   for (const s of bass) for (const pc of NAT.filter(pc => !landmark(s, pc)).sort((a, b) => fretOn(s, a) - fretOn(s, b)))
     defs.push(noteCard(s, pc, f => {
-      const a = MARKS.filter(a => NAT.includes((OPEN[s] + a) % 12)).sort((x, y) => Math.abs(x - f) - Math.abs(y - f))[0];
+      const a = MARKS.slice().sort((x, y) => Math.abs(x - f) - Math.abs(y - f))[0];
       const d = f - a, n = Math.abs(d);
-      return `${PC_NAME[pc]} on ${strLabel(s)} is fret ${f}, ${n === 1 ? 'one fret' : 'two frets'} ${d > 0 ? 'above' : 'below'} ${nameAt(s, a)} (${at(a)}).`
-        + (n === 1 ? ` ${d > 0 ? nameAt(s, a) + '–' + PC_NAME[pc] : PC_NAME[pc] + '–' + nameAt(s, a)} is one of the two one-fret steps.` : '');
+      return `${PC_NAME[pc]} on ${strLabel(s)} is fret ${f}, ${frets(n)} ${d > 0 ? 'above' : 'below'} ${nameAt(s, a)} (${at(a)}).`
+        + (n === 1 && NAT.includes((OPEN[s] + a) % 12) ? ` ${d > 0 ? nameAt(s, a) + '–' + PC_NAME[pc] : PC_NAME[pc] + '–' + nameAt(s, a)} is one of the two one-fret steps.` : '');
     }));
-  for (const s of bass) for (const pc of ACC.slice().sort((a, b) => fretOn(s, a) - fretOn(s, b)))
-    defs.push(noteCard(s, pc, f => `${PC_BOTH[pc]} on ${strLabel(s)} is fret ${f}, between ${nameAt(s, f - 1)} (${at(f - 1)}) and ${nameAt(s, f + 1)} (fret ${f + 1}). A sharp is one fret up, a flat one fret down.`));
+  for (const s of bass) for (const pc of ACC.filter(pc => !landmark(s, pc)).sort((a, b) => fretOn(s, a) - fretOn(s, b)))
+    defs.push(noteCard(s, pc, f => f === 0 ? `${PC_BOTH[pc]} on ${strLabel(s)} is the open string, and fret 12.` : `${PC_BOTH[pc]} on ${strLabel(s)} is fret ${f}, between ${nameAt(s, f - 1)} (${at(f - 1)}) and ${nameAt(s, f + 1)} (fret ${f + 1}). A sharp is one fret up, a flat one fret down.`));
 
   // e. the other strings, by octave shape from the bass strings
-  const FROM = {4:[6, 2], 3:[5, 2], 2:[4, 3]};
+  // Each string is found from the string it is an octave (string 1: two octaves) above.
+  const FROM = {4:6, 3:5, 2:4, 1:6};
+  const offOf = s => OPEN[FROM[s]] + (s === 1 ? 24 : 12) - OPEN[s];     // frets to move along string s
+  const srcFret = (s, f) => [f - offOf(s), f + 12 - offOf(s)].find(g => g >= 0 && g <= MAXF);
   for (const s of [1, 4, 3, 2]) for (const pc of NAT.slice().sort((a, b) => fretOn(s, a) - fretOn(s, b)))
     defs.push(noteCard(s, pc, f => {
-      if (s === 1) return `${PC_NAME[pc]} on string 1 is ${at(f)}: the same fret as on string 6, two octaves higher.`;
-      const [src, off] = FROM[s];
-      const g = f - off >= 0 ? f - off : f - off + 12;
-      const words = ['', 'one', 'two', 'three'];
-      const lands = f - off < 0 ? (f === 0 ? ' lands on fret 12, the same note' : ` lands on fret ${f + 12}, the same note an octave up`) : '';
-      return `${PC_NAME[pc]} on ${strLabel(s)} is ${at(f)}. Start from ${nameAt(src, g)} on string ${src}, fret ${g}: two strings over and ${words[off]} frets up${lands}`
-        + (s === 2 ? '. It’s three, not two, because the B string is tuned a fret low.' : '.');
-    }, f => {
-      if (s === 1) return {s: 6, f};
-      const [src, off] = FROM[s];
-      return {s: src, f: f - off >= 0 ? f - off : f - off + 12};
-    }));
+      const src = FROM[s], off = offOf(s), g = srcFret(s, f), reached = g + off;
+      const move = off === 0 ? 'the same fret' : `${frets(Math.abs(off))} ${off > 0 ? 'up' : 'down'}`;
+      const where = reached === f ? '' : ` That lands on fret ${reached}, ${f === 0 ? 'the same note as the open string' : `an octave above fret ${f}`}.`;
+      if (s === 1) return `${PC_NAME[pc]} on string 1 is ${at(f)}. Start from ${PC_NAME[pc]} on string 6, fret ${g}: on string 1, ${move} is the same note two octaves higher.${where}`;
+      return `${PC_NAME[pc]} on ${strLabel(s)} is ${at(f)}. Start from ${PC_NAME[pc]} on string ${src}, fret ${g}, then go two strings over${off === 0 ? ', same fret' : ' and ' + move}.${where}`
+        + (STANDARD_SHAPES && s === 2 ? ' It’s three, not two, because the B string is tuned a fret low.' : '');
+    }, f => ({s: FROM[s], f: srcFret(s, f)})));
 
   // f. sweeps
   for (const pc of NAT.concat(ACC)) defs.push({id:`n:sweep:${pc}`, make(){
-    const frets = STRINGS.map(s => fretOn(s, pc));
+    const fs = STRINGS.map(s => fretOn(s, pc));
     return {
       prompt: `Play every ${PC_BOTH[pc]}`, sub: 'one on each string, string 6 to string 1',
       expect: {type:'tests', strs: STRINGS, tests: STRINGS.map(s => m => m % 12 === pc && playable(s, m, 0, 12))},
       reveal: {dots: positionsPc(pc).map(p => ({...p, label: PC_NAME[pc], kind:'hit'})),
-               text: `Every ${PC_BOTH[pc]}, string 6 to 1: frets ${frets.join(' ')}. The octave shape links them: the same note two strings over and two frets up, three when the shape crosses the B string.`}
+               text: `Every ${PC_BOTH[pc]}, string 6 to 1: frets ${fs.join(' ')}. ${STANDARD_SHAPES ? 'The octave shape links them: the same note two strings over and two frets up, three when the shape crosses the B string.' : 'See them as one picture.'}`}
     };
   }});
 
@@ -317,7 +353,8 @@ function stage(id, name, line, defs){
     };
   };
   stage('octaves', 'Octaves',
-    'The same note appears all over the neck. Learn the shapes that join a note to itself. The B string is tuned one fret lower than the pattern, so any shape that crosses it shifts by one fret.', defs);
+    'The same note appears all over the neck. Learn the shapes that join a note to itself. '
+    + (STANDARD_SHAPES ? 'The B string is tuned one fret lower than the pattern, so any shape that crosses it shifts by one fret.' : `In ${TUNING.name} the shapes differ from standard tuning, so learn them fresh.`), defs);
 }
 
 // 3. Intervals
@@ -354,7 +391,8 @@ function stage(id, name, line, defs){
     defs.push({id:`t:${q}:${inv}:${si}`, make(){
       const set = SETS[si];
       const degs = CHORDS[q].slice(inv).concat(CHORDS[q].slice(0, inv));
-      for (let tries = 0; tries < 100; tries++){
+      // Some tunings can't fit a close triad in four frets on every string set, so allow a wider stretch only when needed.
+      for (const span of [4, 5, 6]) for (let tries = 0; tries < 40; tries++){
         const root = goodRoot(q), rpc = pcOf(root);
         const pcs = degs.map(d => (rpc + DEG[d][0]) % 12);
         const f0s = shuffle([...Array(13).keys()]).filter(f => (OPEN[set[0]] + f) % 12 === pcs[0]);
@@ -362,7 +400,7 @@ function stage(id, name, line, defs){
           const ms = [OPEN[set[0]] + f0];
           for (let k = 1; k < 3; k++){ let m = ms[k-1] + 1; while (m % 12 !== pcs[k]) m++; ms.push(m); }
           const fs = ms.map((m, k) => m - OPEN[set[k]]);
-          if (fs.some(f => f < 0 || f > MAXF) || Math.max(...fs) - Math.min(...fs) > 4) continue;
+          if (fs.some(f => f < 0 || f > MAXF) || Math.max(...fs) - Math.min(...fs) > span) continue;
           const name = root + q;
           return {
             prompt: `Play ${name}`, sub: `${INV[inv]} · strings ${set.join(' ')}, low to high`,
@@ -505,10 +543,6 @@ function pcsReveal(root, type, text){
 const MIN = 60e3, DAY = 864e5;
 const IV = [0, 5*MIN, DAY, 3*DAY, 7*DAY, 16*DAY, 35*DAY, 90*DAY];
 const LEARNED = 2, KNOWN = 4, NEW_PER_SESSION = 8, SESSION_MAX = 25, UNLOCK = 0.9;
-const KEY = 'wholeguitar.v1', OLD_KEY = 'fretboard.v1';  // the app was called Fretboard before
-let S = {c:{}, intro:{}, lefty:false};
-try { const raw = localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch(e){}
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
 const card = id => S.c[id] || {b:0, d:0, n:0};
 
 function stageStats(i){
@@ -597,7 +631,7 @@ function click(when, accent){
 // YIN pitch detection on the analyser buffer
 const W = 1024; let yd = null;
 function yin(buf, sr){
-  const tMin = Math.floor(sr / 1400), tMax = Math.min(Math.floor(sr / 70), buf.length - W - 1);
+  const tMin = Math.floor(sr / 1400), tMax = Math.min(Math.floor(sr / 60), buf.length - W - 1);
   if (!yd || yd.length !== tMax + 1) yd = new Float32Array(tMax + 1);
   for (let t = 1; t <= tMax; t++){ let s = 0; for (let i = 0; i < W; i++){ const d = buf[i] - buf[i + t]; s += d * d; } yd[t] = s; }
   let run = 0; yd[0] = 1;
@@ -627,7 +661,7 @@ function listen(){
   const f = yin(tbuf, ac.sampleRate);
   if (!f) return null;
   const mf = 69 + 12 * Math.log2(f / 440), m = Math.round(mf);
-  if (m < 38 || m > 88) return null;
+  if (m < 34 || m > 88) return null;
   if (m === det.cand) det.count++; else { det.cand = m; det.count = 1; }
   if (ac.currentTime < det.muteUntil){ det.current = m; return {m, cents:(mf - m) * 100}; }
   if (det.count === STABLE && m !== det.current){ det.current = m; if (det.onNote) det.onNote(m); }
@@ -692,7 +726,7 @@ function micError(e){
 // ---------- tuner ----------
 async function startTuner(){
   try { await audio(); } catch(e){ $('#tname').textContent = '–'; $('#tnote').textContent = 'The tuner needs the microphone.'; return; }
-  $('#tnote').textContent = 'E A D G B E';
+  $('#tnote').textContent = `${TUNING.name}: ${TUNING.names}`;
   cancelAnimationFrame(raf);
   let shown = null, hold = 0;
   const loop = () => {
@@ -725,8 +759,16 @@ function renderPath(){
        + '</li>';
   });
   h += '</ol><p class="dim small" style="margin-bottom:16px">The number is how many you know. The line shows how far you are: grey is learned (answered quickly twice), solid is known (answered quickly over several days). Each stage opens when 90% of the one before is learned.</p>';
-  h += `<div class="foot"><button id="lefty">Left-handed: ${S.lefty ? 'on' : 'off'}</button><button id="erase">Erase progress</button></div>`;
+  h += `<div class="foot"><label class="tuning">Tuning <select id="tuning">${Object.entries(TUNINGS).map(([k, t]) => `<option value="${k}"${k === S.tuning ? ' selected' : ''}>${t.name}</option>`).join('')}</select></label><button id="lefty">Left-handed: ${S.lefty ? 'on' : 'off'}</button><button id="erase">Erase progress</button></div>`;
   el.innerHTML = h;
+  $('#tuning').onchange = e => {
+    // Each tuning is a different neck, so it keeps its own progress.
+    S.byTuning[S.tuning] = S.c;
+    S.tuning = e.target.value;
+    S.c = S.byTuning[S.tuning] || {};
+    delete S.byTuning[S.tuning];
+    save(); location.reload();
+  };
   $('#lefty').onclick = () => { S.lefty = !S.lefty; save(); renderPath(); };
   $('#erase').onclick = () => { if (confirm('Erase all progress?')){ S.c = {}; S.intro = {}; save(); renderPath(); } };
 }
@@ -739,7 +781,7 @@ function renderHome(){
   let line;
   if (b.q.length) line = [b.due && `${b.due} due`, (b.q.length > Math.min(b.due, SESSION_MAX)) && `${b.fresh} new`].filter(Boolean).join(' · ');
   else line = 'Nothing due. Practise ahead, or come back tomorrow.';
-  P.innerHTML = `<div class="center"><button class="big" id="begin">Begin</button><p class="dim small">${line}</p></div>`;
+  P.innerHTML = `<div class="center"><button class="big" id="begin">Begin</button><p class="dim small">${line}</p>${S.tuning !== 'standard' ? `<p class="dim small">${TUNING.name}: ${TUNING.names}</p>` : ''}</div>`;
   $('#begin').onclick = async () => {
     try { await audio(); } catch(e){ return micError(e); }
     const q = b.q.length ? b.q : b.ahead;
