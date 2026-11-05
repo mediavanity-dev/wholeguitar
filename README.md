@@ -28,7 +28,7 @@ One linear path. Each stage opens when 90% of the one before is learned.
 
 Sight reading and technique are left out on purpose.
 
-**Tunings** (Path → Tuning): Standard, half step down, whole step down, Drop D, Drop D♭, Drop C, DADGAD, Open G, Open D. Note names are what actually sounds, and every position, shape and explanation is worked out from the tuning. Each tuning keeps its own progress, because each is a different neck.
+**Tunings** (Path → Tuning): Standard, half step down, whole step down, half and whole step down *pseudo-standard*, Drop D, Drop D♭, Drop C, DADGAD, Open G, Open D. Note names are what actually sounds, and every position, shape and explanation is worked out from the tuning. In pseudo-standard the guitar is tuned down but read as standard (fret 1 on the low string is still F): what the mic hears is shifted back up, reference tones are shifted down, and progress is shared with Standard. Every other tuning keeps its own progress, because each is a different neck.
 
 ## How it works
 
