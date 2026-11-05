@@ -604,7 +604,7 @@ async function audio(){
     const code = `class O extends AudioWorkletProcessor{constructor(){super();this.h=new Float32Array(8);this.i=0;this.last=-1}
       process(inp){const x=inp[0]&&inp[0][0];if(!x)return true;let e=0;for(let k=0;k<x.length;k++)e+=x[k]*x[k];e/=x.length;
       let m=0;for(let k=0;k<8;k++)m+=this.h[k];m/=8;
-      if(e>4e-5&&e>m*4&&currentTime-this.last>0.06){this.last=currentTime;this.port.postMessage(currentTime)}
+      if(e>1.5e-6&&e>m*4&&currentTime-this.last>0.06){this.last=currentTime;this.port.postMessage(currentTime)}
       this.h[this.i]=e;this.i=(this.i+1)%8;return true}}registerProcessor('onsets',O);`;
     await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([code], {type:'application/javascript'})));
     onsetNode = new AudioWorkletNode(ac, 'onsets');
@@ -648,15 +648,20 @@ function yin(buf, sr){
 
 // Turns raw pitch frames into note events. A note fires once it has been stable for STABLE frames,
 // and again only after silence or a new pluck (onset).
-const STABLE = 6, GATE = 0.006;
-const det = {cand:null, count:0, current:null, quiet:0, muteUntil:0, onNote:null, last:null};
+// The loudness gate follows the room: it tracks the quietest recent level (the noise floor) and opens at
+// a few times that, so a quiet room hears soft playing and a noisy one doesn't mistake noise for notes.
+const STABLE = 6, GATE_MIN = 0.0012, GATE_MAX = 0.006;
+const det = {cand:null, count:0, current:null, quiet:0, muteUntil:0, onNote:null, last:null, floor:0.001};
 onsetListeners.add(() => { det.current = null; });
 function listen(){
   if (!an) return null;
   an.getFloatTimeDomainData(tbuf);
   let rms = 0; for (let i = 0; i < tbuf.length; i++) rms += tbuf[i] * tbuf[i];
   rms = Math.sqrt(rms / tbuf.length);
-  if (rms < GATE){ det.cand = null; det.count = 0; if (++det.quiet > 5) det.current = null; return null; }
+  // Falls straight to any quieter level, rises slowly (about half a minute), so long notes don't raise it.
+  det.floor = rms < det.floor ? rms : det.floor + (rms - det.floor) * 0.0005;
+  const gate = Math.min(GATE_MAX, Math.max(GATE_MIN, det.floor * 4));
+  if (rms < gate){ det.cand = null; det.count = 0; if (++det.quiet > 5) det.current = null; return null; }
   det.quiet = 0;
   const f = yin(tbuf, ac.sampleRate);
   if (!f) return null;
