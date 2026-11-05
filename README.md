@@ -6,7 +6,7 @@ Learn the guitar neck by playing it: the app asks, you play, the microphone chec
 
 | What | Where |
 |---|---|
-| Code (local) | `C:\Users\media\Desktop\dans stuff\Development\ClaudeGuitarTeacher` |
+| Code (local) | `C:\Users\media\Desktop\dans stuff\Development\wholeguitar` |
 | Code (GitHub) | https://github.com/mediavanity-dev/fretboard (public, account `mediavanity-dev`) |
 | Hosting | GitHub Pages, from `main` / root. Tracked on the [dashboard](https://mediavanity-dev.github.io/dashboard/). |
 
