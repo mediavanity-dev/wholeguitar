@@ -225,7 +225,7 @@ function stage(id, name, line, defs){
       const f = (pc - OPEN[s] % 12 + 12) % 12;
       const frets = f === 0 ? [0, 12] : [f];
       return {
-        prompt: `Play ${PC_BOTH[pc]}`, sub: `on ${strLabel(s)}`,
+        prompt: `Play ${PC_BOTH[pc]}`, sub: `on ${strLabel(s)}`, strings: [s],
         expect: {type:'test', ok: m => m % 12 === pc && playable(s, m, 0, 12)},
         reveal: {dots: positionsPc(pc).map(p => ({...p, label: PC_NAME[pc], kind: p.s === s ? 'hit' : 'dim'})),
                  text: `${PC_BOTH[pc]} on ${strLabel(s)} is fret ${frets.join(' and ')}.`}
@@ -303,6 +303,7 @@ function stage(id, name, line, defs){
           const name = root + q;
           return {
             prompt: `Play ${name}`, sub: `${INV[inv]} · strings ${set.join(' ')}, low to high`,
+            strings: set,
             expect: {type:'seq', m: ms},
             reveal: {dots: ms.map((m, k) => ({s:set[k], f:fs[k], label:degs[k], kind: degs[k] === '1' ? 'root' : 'hit'})),
                      text: `${name} is ${chordNotes(root, q).join(' ')} (${CHORDS[q].join(' ')}).`}
@@ -575,15 +576,20 @@ const midiName = m => PC_NAME[m % 12] + (Math.floor(m / 12) - 1);
    Fretboard (vertical, low E on the left; mirrored when left-handed)
    ============================================================ */
 const NS = 'http://www.w3.org/2000/svg';
-function board(dots = []){
+// strings: the strings the question is about, drawn in the accent colour and numbered in accent below the neck.
+function board(dots = [], strings = []){
   const top = 26, fh = 25, sx = 34, sw = 27, frets = MAXF;
-  const w = sx * 2 + sw * 5, h = top + frets * fh + 8;
+  const w = sx * 2 + sw * 5, h = top + frets * fh + 24;
   const x = s => { const i = 6 - s; return sx + sw * (S.lefty ? 5 - i : i); };
   const y = f => f === 0 ? top - 13 : top + (f - 0.5) * fh;
   let g = `<svg class="board" viewBox="0 0 ${w} ${h}" xmlns="${NS}" role="img" aria-label="Fretboard">`;
   g += `<line x1="${sx}" y1="${top}" x2="${sx + sw * 5}" y2="${top}" stroke="var(--fg)" stroke-width="3"/>`;
   for (let f = 1; f <= frets; f++) g += `<line x1="${sx}" y1="${top + f * fh}" x2="${sx + sw * 5}" y2="${top + f * fh}" stroke="var(--line)"/>`;
-  for (const s of STRINGS) g += `<line x1="${x(s)}" y1="${top}" x2="${x(s)}" y2="${top + frets * fh}" stroke="var(--dim)" stroke-width="${s >= 4 ? 1.4 : 1}"/>`;
+  for (const s of STRINGS){
+    const on = strings.includes(s);
+    g += `<line x1="${x(s)}" y1="${top}" x2="${x(s)}" y2="${top + frets * fh}" stroke="${on ? 'var(--accent)' : 'var(--dim)'}" stroke-width="${on ? 3 : s >= 4 ? 1.4 : 1}"/>`;
+    g += `<text x="${x(s)}" y="${top + frets * fh + 17}" font-size="12" text-anchor="middle" fill="${on ? 'var(--accent)' : 'var(--dim)'}"${on ? ' font-weight="600"' : ''}>${s}</text>`;
+  }
   const nx = S.lefty ? w - 12 : 12;
   for (const f of [3,5,7,9,12,15]) g += `<text x="${nx}" y="${y(f) + 4}" font-size="11" text-anchor="middle" fill="var(--dim)">${f}</text>`;
   for (const d of dots){
@@ -735,7 +741,7 @@ function drill(id, inst, st){
     <div class="status"><span class="hear" id="hear"></span>
       <span class="actions">${inst.audio ? '<button id="replay">Hear again</button>' : ''}<button id="show">Show</button></span></div>
     <div class="msg" id="msg"></div>
-    <div class="boardwrap" id="bw">${board(inst.show)}</div>`;
+    <div class="boardwrap" id="bw">${board(inst.show, inst.strings)}</div>`;
   const ex = inst.expect;
   const target = ex.type === 'seq' ? ex.m.length : ex.type === 'pcs' ? ex.pcs.length : 1;
   const fastMs = target === 1 ? 3000 : 2000 + 1300 * target;
@@ -757,14 +763,14 @@ function drill(id, inst, st){
     if (result === 'miss'){
       $('#pr').classList.add('dim');
       $('#msg').textContent = inst.reveal.text;
-      $('#bw').innerHTML = board(inst.reveal.dots);
+      $('#bw').innerHTML = board(inst.reveal.dots, inst.strings);
       $('#show').textContent = 'Next';
       $('#show').onclick = next;
       $('#bw').onclick = next;
     } else {
       $('#pr').classList.add('acc');
       $('#msg').innerHTML = result === 'slow' ? '<span class="dim">Right, but slow.</span>' : '';
-      $('#bw').innerHTML = board(inst.reveal.dots);
+      $('#bw').innerHTML = board(inst.reveal.dots, inst.strings);
       sess.timer = setTimeout(next, result === 'slow' ? 1600 : 900);
     }
   };
@@ -786,7 +792,7 @@ function drill(id, inst, st){
     if (ex.type === 'seq'){
       const k = got.length - 1, d = inst.reveal.dots.find(x => OPEN[x.s] + x.f === m && x.label !== undefined);
       if (d && !hits.some(h => h.s === d.s && h.f === d.f)) hits.push(d);
-      $('#bw').innerHTML = board(hits);
+      $('#bw').innerHTML = board(hits, inst.strings);
     }
     if (target > 1) $('#msg').innerHTML = `<span class="dim">${got.length} of ${target}</span>`;
     if (got.length >= target || ex.type === 'test') finishCard(performance.now() - t0 <= fastMs ? 'fast' : 'slow');
