@@ -81,6 +81,14 @@ svg.board{height:calc(100dvh - 270px);max-height:560px;min-height:280px;width:au
 .needle{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--fg);left:50%;transition:left .08s linear;opacity:0}
 .needle.ok{background:var(--accent)}
 
+/* input meter: thin bar on the right edge while the app listens */
+#meter{position:fixed;right:max(5px, env(safe-area-inset-right));top:64px;bottom:max(16px, env(safe-area-inset-bottom));width:3px;background:var(--line);display:none;z-index:4;pointer-events:none}
+#meter.on{display:block}
+#meter i{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--dim)}
+#meter[data-state="heard"] i{background:var(--fg)}
+#meter[data-state="note"] i{background:var(--accent)}
+#meter b{position:absolute;left:-3px;width:9px;height:2px;margin-bottom:-1px;background:var(--fg)}
+
 /* path */
 ol.path{list-style:none;display:flex;flex-direction:column;gap:22px;padding-bottom:24px}
 ol.path li.locked{color:var(--dim)}
@@ -104,6 +112,8 @@ ol.path p{font-size:15px;color:var(--dim);margin-top:4px}
   <button data-v="path">Path</button>
 </nav>
 
+<div id="meter" aria-hidden="true"><i id="lvl"></i><b id="gate"></b></div>
+
 <main id="practice" class="on"></main>
 
 <main id="tuner">
@@ -112,6 +122,7 @@ ol.path p{font-size:15px;color:var(--dim);margin-top:4px}
     <div class="tcents" id="tcents"></div>
     <div class="track"><div class="needle" id="needle"></div></div>
     <p class="dim small" id="tnote" style="margin-top:24px"></p>
+    <p class="dim small" style="margin-top:28px;max-width:300px">The line at the right edge is what the microphone hears. Below its mark, sound is ignored. Above it, the app is listening, and the line turns red when it recognises a note.</p>
   </div>
 </main>
 
@@ -653,7 +664,7 @@ function yin(buf, sr){
 const STABLE = 6, GATE_MIN = 0.0012, GATE_MAX = 0.006;
 const det = {cand:null, count:0, current:null, quiet:0, muteUntil:0, onNote:null, last:null, floor:0.001};
 onsetListeners.add(() => { det.current = null; });
-function listen(){
+function hear(){
   if (!an) return null;
   an.getFloatTimeDomainData(tbuf);
   let rms = 0; for (let i = 0; i < tbuf.length; i++) rms += tbuf[i] * tbuf[i];
@@ -661,6 +672,7 @@ function listen(){
   // Falls straight to any quieter level, rises slowly (about half a minute), so long notes don't raise it.
   det.floor = rms < det.floor ? rms : det.floor + (rms - det.floor) * 0.0005;
   const gate = Math.min(GATE_MAX, Math.max(GATE_MIN, det.floor * 4));
+  det.rms = rms; det.gate = gate;
   if (rms < gate){ det.cand = null; det.count = 0; if (++det.quiet > 5) det.current = null; return null; }
   det.quiet = 0;
   const f = yin(tbuf, ac.sampleRate);
@@ -672,6 +684,21 @@ function listen(){
   if (det.count === STABLE && m !== det.current){ det.current = m; if (det.onNote) det.onNote(m); }
   return {m, cents: (mf - m) * 100, stable: det.count >= STABLE};
 }
+// Every listening frame also draws the meter.
+function listen(){ const r = hear(); meter(r); return r; }
+// Meter: level on a dB scale (-70 to -10 dBFS), the gate as a mark, colour for what the app makes of it.
+const toPos = v => Math.max(0, Math.min(1, (20 * Math.log10(Math.max(v || 0, 1e-7)) + 70) / 60));
+let meterShown = 0;
+function meter(r){
+  if (!an) return;
+  const el = document.getElementById('meter'), p = toPos(det.rms);
+  meterShown = p >= meterShown ? p : Math.max(p, meterShown - 0.012);     // jumps up, eases down
+  el.classList.add('on');
+  el.dataset.state = r && r.stable ? 'note' : det.rms >= det.gate ? 'heard' : 'quiet';
+  document.getElementById('lvl').style.height = (meterShown * 100) + '%';
+  document.getElementById('gate').style.bottom = (toPos(det.gate) * 100) + '%';
+}
+const hideMeter = () => document.getElementById('meter').classList.remove('on');
 const midiName = m => PC_NAME[m % 12] + (Math.floor(m / 12) - 1);
 
 /* ============================================================
@@ -797,6 +824,7 @@ function renderHome(){
 }
 
 function stopDrill(){
+  hideMeter();
   cancelAnimationFrame(raf);
   det.onNote = null;
   if (sess && sess.timer) clearTimeout(sess.timer);
