@@ -16,7 +16,7 @@ One linear path. Each stage opens when 90% of the one before is learned.
 
 | Stage | Cards | You play |
 |---|---|---|
-| 1. Notes | 72 | a named note on a given string |
+| 1. Notes | 70 | landmarks first: the open strings, then strings 6 and 5 at the marked frets, the notes between, sharps and flats, then strings 1, 4, 3 and 2 by octave shape, then "sweeps" (one note on every string) |
 | 2. Octaves | 10 | the octave above or below a shown note |
 | 3. Intervals | 66 | an interval (♭2 to 7) above a shown root |
 | 4. Triads | 48 | major, minor, diminished and augmented triads, every inversion, every string set, low to high |
